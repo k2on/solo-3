@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Reading Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display: 'DM Serif Display', serif;
+      --font-body: 'DM Sans', sans-serif;
+      --gold: #c9a227;
+      --gold-light: #e8d48b;
+      --parchment: #f5f0e8;
+      --ink: #1a1612;
+      --ink-light: #3d362e;
+      --bark: #6b5b4a;
+      --sage: #7a8b6f;
+      --sage-dark: #5a6b4f;
+      --cream: #faf8f4;
+      --warm-gray: #a89e93;
+      --red-soft: #c45c4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--parchment);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    .font-display { font-family: var(--font-display); }
+
+    /* Subtle parchment texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a227' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app { position: relative; z-index: 1; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(26, 22, 18, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-sheet {
+      background: var(--cream);
+      width: 100%; max-width: 520px;
+      border-radius: 20px 20px 0 0;
+      padding: 28px 24px 32px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
+      animation: slideUp 0.3s ease;
+    }
+    @media (min-width: 640px) {
+      .modal-overlay { align-items: center; }
+      .modal-sheet { border-radius: 16px; margin: 24px; }
+    }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Form elements */
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #d4cdc4;
+      border-radius: 10px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      background: white;
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+    }
+    .form-input.error {
+      border-color: var(--red-soft);
+      box-shadow: 0 0 0 3px rgba(196, 92, 74, 0.12);
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: var(--ink);
+      color: var(--parchment);
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--ink-light); }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--bark);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 14px;
+      border: 1.5px solid #d4cdc4;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--bark); color: var(--ink); }
+
+    .btn-danger {
+      background: var(--red-soft);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-danger:hover { background: #b04a3a; }
+
+    /* Entry cards */
+    .entry-card {
+      background: white;
+      border: 1px solid #e8e2d9;
+      border-radius: 14px;
+      padding: 18px 20px;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .entry-card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      transform: translateY(-1px);
+    }
+
+    /* Paging */
+    .page-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      font-weight: 600; font-size: 14px;
+      border: 1.5px solid #d4cdc4;
+      background: white;
+      color: var(--bark);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-btn.active { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
+
+    /* Navigation */
+    .nav-tab {
+      padding: 12px 0;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--warm-gray);
+      cursor: pointer;
+      border-bottom: 2.5px solid transparent;
+      transition: all 0.2s;
+      text-align: center;
+      flex: 1;
+    }
+    .nav-tab:hover { color: var(--bark); }
+    .nav-tab.active { color: var(--ink); border-bottom-color: var(--gold); }
+
+    /* Stats card */
+    .stat-card {
+      background: white;
+      border: 1px solid #e8e2d9;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-number {
+      font-family: var(--font-display);
+      font-size: 32px;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--bark);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* Delete confirmation modal */
+    .confirm-overlay {
+      position: fixed; inset: 0;
+      background: rgba(26, 22, 18, 0.5);
+      backdrop-filter: blur(3px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 0.15s ease;
+    }
+    .confirm-box {
+      background: var(--cream);
+      border-radius: 16px;
+      padding: 28px;
+      max-width: 380px;
+      width: 90%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+      animation: slideUp 0.2s ease;
+    }
+
+    /* Error toast */
+    .error-text { color: var(--red-soft); font-size: 13px; margin-top: 4px; font-weight: 500; }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2.5px solid #d4cdc4;
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .modal-sheet { padding: 24px 18px 28px; }
+      .entry-card { padding: 14px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ============================================================
+// CONFIG — Change API_BASE to your deployed backend URL
+// ============================================================
+const API_BASE = 'https://solo-2-wooster.onrender.com/api';
+
+const BOOKS = [
+  'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+  '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
+  'Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
+  'Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
+  'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah',
+  'Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
+  '2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
+  '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon',
+  'Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
+];
+const CHAPTER_MAP = [
+  50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  page: 'list',       // 'list' | 'stats'
+  entries: [],
+  currentPage: 1,
+  totalPages: 1,
+  totalEntries: 0,
+  stats: null,
+  editing: null,       // null or entry object (new entries have id: null)
+  deleting: null,      // null or entry object
+  loading: false,
+  formErrors: [],
+  saving: false,
+};
+
+const elApp = document.getElementById('app');
+
+// ============================================================
+// API HELPERS
+// ============================================================
+async function apiGet(path) {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw { status: res.status, data };
+  return data;
+}
+
+async function apiPut(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw { status: res.status, data };
+  return data;
+}
+
+async function apiDelete(path) {
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Delete failed`);
+  }
+  return res.json();
+}
+
+// ============================================================
+// DATA LOADERS
+// ============================================================
+async function loadEntries(page = 1) {
+  state.loading = true;
+  render();
+  try {
+    const data = await apiGet(`/entries?page=${page}`);
+    state.entries = data.entries;
+    state.currentPage = data.page;
+    state.totalPages = data.totalPages;
+    state.totalEntries = data.totalEntries;
+  } catch (e) {
+    console.error('Failed to load entries:', e);
+  }
+  state.loading = false;
+  render();
+}
+
+async function loadStats() {
+  state.loading = true;
+  render();
+  try {
+    state.stats = await apiGet('/stats');
+  } catch (e) {
+    console.error('Failed to load stats:', e);
+  }
+  state.loading = false;
+  render();
+}
+
+// ============================================================
+// CLIENT-SIDE VALIDATION
+// ============================================================
+function validateForm(book, chapter, dateStr) {
+  const errors = [];
+  if (book === '' || book === null || book === undefined) {
+    errors.push('Please select a book.');
+  }
+  if (!chapter || isNaN(chapter) || parseInt(chapter) < 1) {
+    errors.push('Chapter must be at least 1.');
+  }
+  if (book !== '' && book !== null && book !== undefined) {
+    const bi = parseInt(book);
+    const ch = parseInt(chapter);
+    if (ch > CHAPTER_MAP[bi]) {
+      errors.push(`${BOOKS[bi]} only has ${CHAPTER_MAP[bi]} chapters.`);
+    }
+  }
+  if (!dateStr) {
+    errors.push('Please select a date.');
+  }
+  return errors;
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+async function saveEntry() {
+  const bookEl = document.getElementById('form-book');
+  const chapterEl = document.getElementById('form-chapter');
+  const dateEl = document.getElementById('form-date');
+
+  const book = bookEl.value;
+  const chapter = chapterEl.value;
+  const dateStr = dateEl.value;
+
+  // Client validation
+  const errors = validateForm(book, chapter, dateStr);
+  if (errors.length > 0) {
+    state.formErrors = errors;
+    render();
+    return;
+  }
+
+  const payload = {
+    date: new Date(dateStr).getTime(),
+    start: {
+      book: parseInt(book),
+      chapter: parseInt(chapter),
+    },
+  };
+
+  state.saving = true;
+  state.formErrors = [];
+  render();
+
+  try {
+    if (state.editing.id !== null) {
+      await apiPut(`/entries/${state.editing.id}`, payload);
+    } else {
+      await apiPost('/entries', payload);
+    }
+    state.editing = null;
+    state.saving = false;
+    await loadEntries(state.currentPage);
+  } catch (e) {
+    state.saving = false;
+    if (e.data && e.data.errors) {
+      state.formErrors = e.data.errors;
+    } else {
+      state.formErrors = ['An unexpected error occurred. Please try again.'];
+    }
+    render();
+  }
+}
+
+async function deleteEntry(id) {
+  try {
+    await apiDelete(`/entries/${id}`);
+    state.deleting = null;
+    // If we were on a page that might now be empty, go back
+    const newTotalEntries = state.totalEntries - 1;
+    const newTotalPages = Math.max(1, Math.ceil(newTotalEntries / 10));
+    const targetPage = Math.min(state.currentPage, newTotalPages);
+    await loadEntries(targetPage);
+  } catch (e) {
+    console.error('Delete failed:', e);
+    state.deleting = null;
+    render();
+  }
+}
+
+// ============================================================
+// DATE HELPERS
+// ============================================================
+function formatDateDisplay(ms) {
+  const d = new Date(ms);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function formatDatetimeLocal(ms) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  elApp.innerHTML = `
+    <div style="max-width: 600px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column;">
+      <!-- Header -->
+      <header style="padding: 24px 20px 0; text-align: center;">
+        <div style="display: inline-flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${'var(--gold)'}" stroke-width="1.5">
+            <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+          </svg>
+          <h1 class="font-display" style="font-size: 26px; color: var(--ink);">Bible Reading Tracker</h1>
+        </div>
+        <p style="font-size: 14px; color: var(--bark); margin-top: 2px;">Track your journey through Scripture</p>
+      </header>
+
+      <!-- Navigation Tabs -->
+      <nav style="display: flex; margin: 16px 20px 0; gap: 0; border-bottom: 1px solid #e0d9cf;">
+        <div class="nav-tab ${state.page === 'list' ? 'active' : ''}" onclick="navigate('list')">
+          <span>Reading Log</span>
+        </div>
+        <div class="nav-tab ${state.page === 'stats' ? 'active' : ''}" onclick="navigate('stats')">
+          <span>Statistics</span>
+        </div>
+      </nav>
+
+      <!-- Content -->
+      <div style="flex: 1; padding: 16px 20px 100px;">
+        ${state.page === 'list' ? renderList() : renderStatsView()}
+      </div>
+
+      ${state.page === 'list' ? `
+      <!-- FAB: New Entry -->
+      <div style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 560px; z-index: 50;">
+        <button class="btn-primary" onclick="openNewEntry()" style="font-size: 16px; padding: 14px; border-radius: 14px; box-shadow: 0 6px 24px rgba(26,22,18,0.18);">
+          + New Entry
+        </button>
+      </div>` : ''}
+
+      ${state.editing ? renderModal() : ''}
+      ${state.deleting ? renderDeleteConfirm() : ''}
+    </div>
+  `;
+}
+
+// ============================================================
+// LIST VIEW
+// ============================================================
+function renderList() {
+  if (state.loading) {
+    return `<div style="text-align: center; padding: 60px 0;"><div class="spinner"></div></div>`;
+  }
+
+  if (state.entries.length === 0) {
+    return `
+      <div style="text-align: center; padding: 60px 20px; color: var(--bark);">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--warm-gray)" stroke-width="1" style="margin: 0 auto 16px;">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        </svg>
+        <p style="font-size: 16px; font-weight: 600;">No entries yet</p>
+        <p style="font-size: 14px; margin-top: 4px;">Tap "New Entry" to start tracking your reading.</p>
+      </div>
+    `;
+  }
+
+  const entryCards = state.entries.map(entry => {
+    const bookName = BOOKS[entry.start.book] || 'Unknown';
+    const chapter = entry.start.chapter;
+    const dateStr = formatDateDisplay(entry.date);
+
+    return `
+      <div class="entry-card" style="margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="font-display" style="font-size: 20px; line-height: 1.2;">${bookName} ${chapter}</div>
+            <div style="font-size: 13px; color: var(--bark); margin-top: 4px;">${dateStr}</div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-shrink: 0;">
+            <button class="btn-ghost" onclick="openEditEntry(${entry.id})" style="padding: 6px 12px; font-size: 13px;">Edit</button>
+            <button class="btn-danger" onclick="confirmDelete(${entry.id})">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    ${entryCards}
+    ${renderPaging()}
+  `;
+}
+
+// ============================================================
+// PAGING
+// ============================================================
+function renderPaging() {
+  if (state.totalPages <= 1) return '';
+
+  let pages = '';
+  for (let i = 1; i <= state.totalPages; i++) {
+    pages += `<button class="page-btn ${i === state.currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+  }
+
+  return `
+    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap;">
+      <button class="page-btn" onclick="goToPage(${state.currentPage - 1})" ${state.currentPage <= 1 ? 'disabled' : ''}>‹</button>
+      ${pages}
+      <button class="page-btn" onclick="goToPage(${state.currentPage + 1})" ${state.currentPage >= state.totalPages ? 'disabled' : ''}>›</button>
+    </div>
+    <div style="text-align: center; margin-top: 10px; font-size: 13px; color: var(--bark);">
+      Page ${state.currentPage} of ${state.totalPages} · ${state.totalEntries} total entries
+    </div>
+  `;
+}
+
+// ============================================================
+// STATS VIEW
+// ============================================================
+function renderStatsView() {
+  if (state.loading || !state.stats) {
+    return `<div style="text-align: center; padding: 60px 0;"><div class="spinner"></div></div>`;
+  }
+
+  const s = state.stats;
+  return `
+    <div style="margin-top: 8px;">
+      <h2 class="font-display" style="font-size: 22px; margin-bottom: 16px;">Your Reading Stats</h2>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="stat-card">
+          <div class="stat-number">${s.totalEntries}</div>
+          <div class="stat-label">Total Entries</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${s.totalChapters}</div>
+          <div class="stat-label">Chapters Read</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${s.uniqueBooks}</div>
+          <div class="stat-label">Books Touched</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${s.longestStreak}</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+      </div>
+
+      <div class="stat-card" style="margin-top: 12px;">
+        <div style="font-weight: 600; font-size: 15px; margin-bottom: 12px; color: var(--ink);">Testament Breakdown</div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="flex: 1; height: 12px; border-radius: 99px; background: #e8e2d9; overflow: hidden;">
+            <div style="height: 100%; width: ${s.totalEntries > 0 ? Math.round((s.otEntries / s.totalEntries) * 100) : 50}%; background: var(--gold); border-radius: 99px;"></div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: var(--bark);">
+          <span>Old Testament: ${s.otEntries}</span>
+          <span>New Testament: ${s.ntEntries}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// ADD/EDIT MODAL
+// ============================================================
+function renderModal() {
+  const e = state.editing;
+  const isNew = e.id === null;
+  const title = isNew ? 'New Entry' : 'Edit Entry';
+  const dateVal = e.date ? formatDatetimeLocal(e.date) : '';
+  const bookVal = e.start.book !== null && e.start.book !== undefined && e.start.book !== '' ? e.start.book : '';
+  const chapterVal = e.start.chapter || 1;
+
+  const bookOptions = BOOKS.map((b, i) =>
+    `<option value="${i}" ${i == bookVal ? 'selected' : ''}>${b}</option>`
+  ).join('');
+
+  const errorsHtml = state.formErrors.length > 0
+    ? `<div style="margin-bottom: 14px;">${state.formErrors.map(err => `<div class="error-text">⚠ ${err}</div>`).join('')}</div>`
+    : '';
+
+  return `
+    <div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        <h2 class="font-display" style="font-size: 22px; margin-bottom: 20px;">${title}</h2>
+
+        ${errorsHtml}
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; font-weight: 600; color: var(--bark); margin-bottom: 6px;">Date & Time</label>
+          <input type="datetime-local" id="form-date" class="form-input ${state.formErrors.some(e => e.includes('date')) ? 'error' : ''}" value="${dateVal}" />
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; font-weight: 600; color: var(--bark); margin-bottom: 6px;">Book</label>
+          <select id="form-book" class="form-input ${state.formErrors.some(e => e.includes('book')) ? 'error' : ''}" onchange="onBookChange()">
+            <option value="">Select a book…</option>
+            ${bookOptions}
+          </select>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 13px; font-weight: 600; color: var(--bark); margin-bottom: 6px;">Chapter</label>
+          <input type="number" id="form-chapter" class="form-input ${state.formErrors.some(e => e.includes('hapter')) ? 'error' : ''}" min="1" value="${chapterVal}" />
+          <div id="chapter-hint" style="font-size: 12px; color: var(--warm-gray); margin-top: 4px;">${bookVal !== '' ? `${BOOKS[bookVal]} has ${CHAPTER_MAP[bookVal]} chapters` : ''}</div>
+        </div>
+
+        <button class="btn-primary" onclick="saveEntry()" ${state.saving ? 'disabled' : ''}>
+          ${state.saving ? '<span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>' : (isNew ? 'Add Entry' : 'Save Changes')}
+        </button>
+        <button class="btn-ghost" onclick="state.editing=null;state.formErrors=[];render();" style="width: 100%; margin-top: 8px;">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// DELETE CONFIRMATION
+// ============================================================
+function renderDeleteConfirm() {
+  const e = state.deleting;
+  const bookName = BOOKS[e.start.book] || 'Unknown';
+  return `
+    <div class="confirm-overlay" onclick="state.deleting=null;render();">
+      <div class="confirm-box" onclick="event.stopPropagation()">
+        <h3 class="font-display" style="font-size: 20px; margin-bottom: 8px;">Delete Entry?</h3>
+        <p style="font-size: 14px; color: var(--bark); margin-bottom: 20px;">
+          Are you sure you want to remove <strong>${bookName} ${e.start.chapter}</strong> from ${formatDateDisplay(e.date)}? This cannot be undone.
+        </p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-ghost" onclick="state.deleting=null;render();" style="flex:1;">Cancel</button>
+          <button class="btn-danger" onclick="deleteEntry(${e.id})" style="flex:1; padding: 10px;">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// EVENT HANDLERS
+// ============================================================
+function navigate(page) {
+  state.page = page;
+  if (page === 'stats') {
+    loadStats();
+  } else {
+    loadEntries(state.currentPage);
+  }
+}
+
+function goToPage(p) {
+  if (p < 1 || p > state.totalPages) return;
+  loadEntries(p);
+}
+
+function openNewEntry() {
+  state.editing = {
+    id: null,
+    date: Date.now(),
+    start: { book: '', chapter: 1 },
+  };
+  state.formErrors = [];
+  render();
+}
+
+function openEditEntry(id) {
+  const entry = state.entries.find(e => e.id === id);
+  if (entry) {
+    state.editing = JSON.parse(JSON.stringify(entry));
+    state.formErrors = [];
+    render();
+  }
+}
+
+function confirmDelete(id) {
+  const entry = state.entries.find(e => e.id === id);
+  if (entry) {
+    state.deleting = entry;
+    render();
+  }
+}
+
+function closeModal(event) {
+  if (event.target === event.currentTarget) {
+    state.editing = null;
+    state.formErrors = [];
+    render();
+  }
+}
+
+function onBookChange() {
+  const bookEl = document.getElementById('form-book');
+  const hint = document.getElementById('chapter-hint');
+  const chapterEl = document.getElementById('form-chapter');
+  if (bookEl.value !== '') {
+    const bi = parseInt(bookEl.value);
+    hint.textContent = `${BOOKS[bi]} has ${CHAPTER_MAP[bi]} chapters`;
+    if (parseInt(chapterEl.value) > CHAPTER_MAP[bi]) {
+      chapterEl.value = CHAPTER_MAP[bi];
+    }
+  } else {
+    hint.textContent = '';
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadEntries(1);
+});
+</script>
+</body>
+</html>
