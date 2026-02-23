@@ -16,15 +16,21 @@ function getDb() {
     static $pdo = null;
     if ($pdo !== null) return $pdo;
 
-    $url = getenv('SOLO3_PGHOST_UNPOOLED');
-    if (!$url) {
-        $url = getenv('SOLO3_DATABASE_URL_UNPOOLED');
-    }
+    // Try multiple env var names (Vercel uses various conventions)
+    $url = getenv('POSTGRES_URL')
+        ?: getenv('DATABASE_URL')
+        ?: getenv('POSTGRES_URL_UNPOOLED')
+        ?: getenv('DATABASE_URL_UNPOOLED')
+        ?: getenv('SOLO3_DATABASE_URL_UNPOOLED');
+
     if (!$url) {
         http_response_code(500);
         echo json_encode(['error' => 'Database connection string not configured.']);
         exit;
     }
+
+    // Normalize postgresql:// to postgres:// for parse_url compatibility
+    $url = preg_replace('/^postgresql:\/\//', 'postgres://', $url);
 
     $parsed = parse_url($url);
     $host = $parsed['host'] ?? 'localhost';
@@ -33,7 +39,14 @@ function getDb() {
     $user = $parsed['user'] ?? 'postgres';
     $pass = $parsed['pass'] ?? '';
 
-    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
+    // Parse query string for sslmode
+    $queryParams = [];
+    if (isset($parsed['query'])) {
+        parse_str($parsed['query'], $queryParams);
+    }
+    $sslmode = $queryParams['sslmode'] ?? 'require';
+
+    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode={$sslmode}";
     try {
         $pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
