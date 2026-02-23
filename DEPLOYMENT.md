@@ -10,8 +10,8 @@ A full-stack Bible reading tracker with CRUD operations, search, sorting, paging
 
 | Item | Detail |
 |------|--------|
-| **Domain Name** | *(your-custom-domain.com)* |
-| **Registrar** | *(e.g., Namecheap, Cloudflare, Google Domains)* |
+| **Domain Name** | https://solo3.cpsc3750.koon.us |
+| **Registrar** | Namecheap |
 | **Hosting Provider** | [Vercel](https://vercel.com) |
 | **HTTPS** | Enabled automatically by Vercel |
 
@@ -29,8 +29,8 @@ A full-stack Bible reading tracker with CRUD operations, search, sorting, paging
 | Item | Detail |
 |------|--------|
 | **Type** | PostgreSQL |
-| **Hosted On** | *(e.g., Neon, Supabase, Railway, Vercel Postgres)* |
-| **Connection** | Via `POSTGRES_URL` environment variable (connection string) |
+| **Hosted On** | Neon |
+| **Connection** | Via `SOLO3_DATABASE_URL_UNPOOLED` environment variable (connection string) |
 | **Schema** | Auto-created on first request (see `api/index.php`) |
 | **Seed Data** | 30 records auto-inserted if the `entries` table is empty |
 
@@ -54,18 +54,18 @@ All secrets are managed via **Vercel Environment Variables** (never committed to
 
 | Variable | Description |
 |----------|-------------|
-| `POSTGRES_URL` | Full PostgreSQL connection string (`postgres://user:pass@host:port/dbname`) |
+| `SOLO3_DATABASE_URL_UNPOOLED` | Full PostgreSQL connection string (`postgres://user:pass@host:port/dbname`) |
 
 ### Setting Environment Variables
 
 1. Go to your Vercel project dashboard
 2. Navigate to **Settings → Environment Variables**
-3. Add `POSTGRES_URL` with your PostgreSQL connection string
+3. Add `SOLO3_DATABASE_URL_UNPOOLED` with your PostgreSQL connection string
 4. Redeploy the project
 
 Alternatively, use the Vercel CLI:
 ```bash
-vercel env add POSTGRES_URL
+vercel env add SOLO3_DATABASE_URL_UNPOOLED
 ```
 
 ## Project Structure
@@ -112,7 +112,7 @@ To test locally, you can run the PHP built-in server (requires PHP 8.x with pdo_
 
 ```bash
 # Set the environment variable
-export POSTGRES_URL="postgres://user:password@host:port/dbname"
+export SOLO3_DATABASE_URL_UNPOOLED="postgres://user:password@host:port/dbname"
 
 # Start PHP dev server
 php -S localhost:8000
