@@ -16,9 +16,9 @@ function getDb() {
     static $pdo = null;
     if ($pdo !== null) return $pdo;
 
-    $url = getenv('SOLO3_POSTGRES_URL');
+    $url = getenv('SOLO3_PGHOST_UNPOOLED');
     if (!$url) {
-        $url = getenv('SOLO3_DATABASE_URL');
+        $url = getenv('SOLO3_DATABASE_URL_UNPOOLED');
     }
     if (!$url) {
         http_response_code(500);
