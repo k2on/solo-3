@@ -46,7 +46,11 @@ function getDb() {
     }
     $sslmode = $queryParams['sslmode'] ?? 'require';
 
-    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode={$sslmode}";
+    // Extract Neon endpoint ID from hostname (e.g. ep-rapid-credit-a41dk64z from ep-rapid-credit-a41dk64z.us-east-1.aws.neon.tech)
+    $endpointId = explode('.', $host)[0];
+    $options = "endpoint={$endpointId}";
+
+    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode={$sslmode};options={$options}";
     try {
         $pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
