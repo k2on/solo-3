@@ -36,7 +36,6 @@
 
     .font-display { font-family: var(--font-display); }
 
-    /* Subtle parchment texture */
     body::before {
       content: '';
       position: fixed;
@@ -48,7 +47,6 @@
 
     #app { position: relative; z-index: 1; }
 
-    /* Modal overlay */
     .modal-overlay {
       position: fixed; inset: 0;
       background: rgba(26, 22, 18, 0.6);
@@ -64,6 +62,8 @@
       padding: 28px 24px 32px;
       box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
       animation: slideUp 0.3s ease;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     @media (min-width: 640px) {
       .modal-overlay { align-items: center; }
@@ -73,7 +73,6 @@
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-    /* Form elements */
     .form-input {
       width: 100%;
       padding: 10px 14px;
@@ -95,7 +94,6 @@
       box-shadow: 0 0 0 3px rgba(196, 92, 74, 0.12);
     }
 
-    /* Buttons */
     .btn-primary {
       background: var(--ink);
       color: var(--parchment);
@@ -140,12 +138,11 @@
     }
     .btn-danger:hover { background: #b04a3a; }
 
-    /* Entry cards */
     .entry-card {
       background: white;
       border: 1px solid #e8e2d9;
       border-radius: 14px;
-      padding: 18px 20px;
+      overflow: hidden;
       transition: box-shadow 0.2s, transform 0.15s;
     }
     .entry-card:hover {
@@ -153,7 +150,15 @@
       transform: translateY(-1px);
     }
 
-    /* Paging */
+    .entry-image {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 10px;
+      flex-shrink: 0;
+      background: #e8e2d9;
+    }
+
     .page-btn {
       display: inline-flex; align-items: center; justify-content: center;
       width: 38px; height: 38px;
@@ -169,7 +174,6 @@
     .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .page-btn.active { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
 
-    /* Navigation */
     .nav-tab {
       padding: 12px 0;
       font-weight: 600;
@@ -184,7 +188,6 @@
     .nav-tab:hover { color: var(--bark); }
     .nav-tab.active { color: var(--ink); border-bottom-color: var(--gold); }
 
-    /* Stats card */
     .stat-card {
       background: white;
       border: 1px solid #e8e2d9;
@@ -205,7 +208,6 @@
       font-weight: 500;
     }
 
-    /* Delete confirmation modal */
     .confirm-overlay {
       position: fixed; inset: 0;
       background: rgba(26, 22, 18, 0.5);
@@ -224,10 +226,8 @@
       animation: slideUp 0.2s ease;
     }
 
-    /* Error toast */
     .error-text { color: var(--red-soft); font-size: 13px; margin-top: 4px; font-weight: 500; }
 
-    /* Loading spinner */
     .spinner {
       display: inline-block;
       width: 20px; height: 20px;
@@ -238,22 +238,55 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Responsive */
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .search-bar input {
+      flex: 1;
+      min-width: 140px;
+    }
+    .search-bar select {
+      min-width: 120px;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      animation: slideDown 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .toast-success { background: var(--sage-dark); color: white; }
+    .toast-error { background: var(--red-soft); color: white; }
+    @keyframes slideDown { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+    @keyframes fadeOut { to { opacity: 0; } }
+
     @media (max-width: 480px) {
       .modal-sheet { padding: 24px 18px 28px; }
-      .entry-card { padding: 14px 16px; }
+      .entry-image { width: 64px; height: 64px; }
     }
   </style>
 </head>
 <body>
 
 <div id="app"></div>
+<div id="toast-container"></div>
 
 <script>
 // ============================================================
-// CONFIG — Change API_BASE to your deployed backend URL
+// CONFIG
 // ============================================================
-const API_BASE = 'https://solo-2-wooster.onrender.com/api';
+const API_BASE = window.location.origin + '/api';
 
 const BOOKS = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
@@ -270,24 +303,69 @@ const CHAPTER_MAP = [
   50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22
 ];
 
+const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' fill='%23e8e2d9'%3E%3Crect width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%23c9a227'%3E📖%3C/text%3E%3C/svg%3E";
+
+const DEFAULT_IMAGES = [
+  'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1529070538774-1f31faa38bcb?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1510172951991-856a654063f9?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=300&fit=crop',
+  'https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=400&h=300&fit=crop',
+];
+
+// ============================================================
+// COOKIE HELPERS
+// ============================================================
+function setCookie(name, value, days = 365) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 86400000);
+  document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+}
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
+
+function getPageSize() {
+  const saved = getCookie('pageSize');
+  const val = saved ? parseInt(saved) : 10;
+  return [5, 10, 20, 50].includes(val) ? val : 10;
+}
+
 // ============================================================
 // STATE
 // ============================================================
 let state = {
-  page: 'list',       // 'list' | 'stats'
+  page: 'list',
   entries: [],
   currentPage: 1,
   totalPages: 1,
   totalEntries: 0,
+  perPage: getPageSize(),
   stats: null,
-  editing: null,       // null or entry object (new entries have id: null)
-  deleting: null,      // null or entry object
+  editing: null,
+  deleting: null,
   loading: false,
   formErrors: [],
   saving: false,
+  search: '',
+  sort: 'date_desc',
 };
 
 const elApp = document.getElementById('app');
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  container.innerHTML = `<div class="toast toast-${type}">${message}</div>`;
+  setTimeout(() => { container.innerHTML = ''; }, 3000);
+}
 
 // ============================================================
 // API HELPERS
@@ -327,7 +405,7 @@ async function apiDelete(path) {
   const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Delete failed`);
+    throw new Error(err.error || 'Delete failed');
   }
   return res.json();
 }
@@ -339,13 +417,22 @@ async function loadEntries(page = 1) {
   state.loading = true;
   render();
   try {
-    const data = await apiGet(`/entries?page=${page}`);
+    const params = new URLSearchParams({
+      page,
+      perPage: state.perPage,
+      sort: state.sort,
+    });
+    if (state.search) params.set('search', state.search);
+
+    const data = await apiGet(`/entries?${params}`);
     state.entries = data.entries;
     state.currentPage = data.page;
     state.totalPages = data.totalPages;
     state.totalEntries = data.totalEntries;
+    state.perPage = data.perPage;
   } catch (e) {
     console.error('Failed to load entries:', e);
+    showToast('Failed to load entries. Please try again.', 'error');
   }
   state.loading = false;
   render();
@@ -358,32 +445,25 @@ async function loadStats() {
     state.stats = await apiGet('/stats');
   } catch (e) {
     console.error('Failed to load stats:', e);
+    showToast('Failed to load stats.', 'error');
   }
   state.loading = false;
   render();
 }
 
 // ============================================================
-// CLIENT-SIDE VALIDATION
+// CLIENT VALIDATION
 // ============================================================
 function validateForm(book, chapter, dateStr) {
   const errors = [];
-  if (book === '' || book === null || book === undefined) {
-    errors.push('Please select a book.');
-  }
-  if (!chapter || isNaN(chapter) || parseInt(chapter) < 1) {
-    errors.push('Chapter must be at least 1.');
-  }
+  if (book === '' || book === null || book === undefined) errors.push('Please select a book.');
+  if (!chapter || isNaN(chapter) || parseInt(chapter) < 1) errors.push('Chapter must be at least 1.');
   if (book !== '' && book !== null && book !== undefined) {
     const bi = parseInt(book);
     const ch = parseInt(chapter);
-    if (ch > CHAPTER_MAP[bi]) {
-      errors.push(`${BOOKS[bi]} only has ${CHAPTER_MAP[bi]} chapters.`);
-    }
+    if (ch > CHAPTER_MAP[bi]) errors.push(`${BOOKS[bi]} only has ${CHAPTER_MAP[bi]} chapters.`);
   }
-  if (!dateStr) {
-    errors.push('Please select a date.');
-  }
+  if (!dateStr) errors.push('Please select a date.');
   return errors;
 }
 
@@ -394,12 +474,13 @@ async function saveEntry() {
   const bookEl = document.getElementById('form-book');
   const chapterEl = document.getElementById('form-chapter');
   const dateEl = document.getElementById('form-date');
+  const imageEl = document.getElementById('form-image');
 
   const book = bookEl.value;
   const chapter = chapterEl.value;
   const dateStr = dateEl.value;
+  const imageUrl = imageEl ? imageEl.value.trim() : '';
 
-  // Client validation
   const errors = validateForm(book, chapter, dateStr);
   if (errors.length > 0) {
     state.formErrors = errors;
@@ -409,10 +490,8 @@ async function saveEntry() {
 
   const payload = {
     date: new Date(dateStr).getTime(),
-    start: {
-      book: parseInt(book),
-      chapter: parseInt(chapter),
-    },
+    start: { book: parseInt(book), chapter: parseInt(chapter) },
+    image_url: imageUrl,
   };
 
   state.saving = true;
@@ -422,8 +501,10 @@ async function saveEntry() {
   try {
     if (state.editing.id !== null) {
       await apiPut(`/entries/${state.editing.id}`, payload);
+      showToast('Entry updated successfully!');
     } else {
       await apiPost('/entries', payload);
+      showToast('Entry added successfully!');
     }
     state.editing = null;
     state.saving = false;
@@ -443,13 +524,14 @@ async function deleteEntry(id) {
   try {
     await apiDelete(`/entries/${id}`);
     state.deleting = null;
-    // If we were on a page that might now be empty, go back
+    showToast('Entry deleted.');
     const newTotalEntries = state.totalEntries - 1;
-    const newTotalPages = Math.max(1, Math.ceil(newTotalEntries / 10));
+    const newTotalPages = Math.max(1, Math.ceil(newTotalEntries / state.perPage));
     const targetPage = Math.min(state.currentPage, newTotalPages);
     await loadEntries(targetPage);
   } catch (e) {
     console.error('Delete failed:', e);
+    showToast('Failed to delete entry.', 'error');
     state.deleting = null;
     render();
   }
@@ -470,16 +552,21 @@ function formatDatetimeLocal(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function handleImgError(img) {
+  img.onerror = null;
+  img.src = PLACEHOLDER_IMG;
+}
+
 // ============================================================
 // RENDER
 // ============================================================
 function render() {
   elApp.innerHTML = `
-    <div style="max-width: 600px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column;">
+    <div style="max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column;">
       <!-- Header -->
       <header style="padding: 24px 20px 0; text-align: center;">
         <div style="display: inline-flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${'var(--gold)'}" stroke-width="1.5">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5">
             <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
           </svg>
           <h1 class="font-display" style="font-size: 26px; color: var(--ink);">Bible Reading Tracker</h1>
@@ -489,12 +576,8 @@ function render() {
 
       <!-- Navigation Tabs -->
       <nav style="display: flex; margin: 16px 20px 0; gap: 0; border-bottom: 1px solid #e0d9cf;">
-        <div class="nav-tab ${state.page === 'list' ? 'active' : ''}" onclick="navigate('list')">
-          <span>Reading Log</span>
-        </div>
-        <div class="nav-tab ${state.page === 'stats' ? 'active' : ''}" onclick="navigate('stats')">
-          <span>Statistics</span>
-        </div>
+        <div class="nav-tab ${state.page === 'list' ? 'active' : ''}" onclick="navigate('list')">Reading Log</div>
+        <div class="nav-tab ${state.page === 'stats' ? 'active' : ''}" onclick="navigate('stats')">Statistics</div>
       </nav>
 
       <!-- Content -->
@@ -503,8 +586,7 @@ function render() {
       </div>
 
       ${state.page === 'list' ? `
-      <!-- FAB: New Entry -->
-      <div style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 560px; z-index: 50;">
+      <div style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 600px; z-index: 50;">
         <button class="btn-primary" onclick="openNewEntry()" style="font-size: 16px; padding: 14px; border-radius: 14px; box-shadow: 0 6px 24px rgba(26,22,18,0.18);">
           + New Entry
         </button>
@@ -520,18 +602,43 @@ function render() {
 // LIST VIEW
 // ============================================================
 function renderList() {
+  // Search / Sort / Page Size controls
+  const controls = `
+    <div class="search-bar">
+      <input type="text" class="form-input" placeholder="Search by book name…" value="${escapeHtml(state.search)}"
+        oninput="onSearchInput(this.value)" style="flex: 2;" />
+      <select class="form-input" onchange="onSortChange(this.value)" style="flex: 1; min-width: 130px;">
+        <option value="date_desc" ${state.sort === 'date_desc' ? 'selected' : ''}>Newest First</option>
+        <option value="date_asc" ${state.sort === 'date_asc' ? 'selected' : ''}>Oldest First</option>
+        <option value="book_asc" ${state.sort === 'book_asc' ? 'selected' : ''}>Book A–Z</option>
+        <option value="book_desc" ${state.sort === 'book_desc' ? 'selected' : ''}>Book Z–A</option>
+        <option value="chapter_asc" ${state.sort === 'chapter_asc' ? 'selected' : ''}>Chapter ↑</option>
+        <option value="chapter_desc" ${state.sort === 'chapter_desc' ? 'selected' : ''}>Chapter ↓</option>
+      </select>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13px; color: var(--bark);">
+      <span>Show</span>
+      <select class="form-input" style="width: auto; padding: 6px 10px; font-size: 13px;" onchange="onPageSizeChange(this.value)">
+        ${[5,10,20,50].map(n => `<option value="${n}" ${state.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}
+      </select>
+      <span>per page</span>
+    </div>
+  `;
+
   if (state.loading) {
-    return `<div style="text-align: center; padding: 60px 0;"><div class="spinner"></div></div>`;
+    return controls + `<div style="text-align: center; padding: 60px 0;"><div class="spinner"></div></div>`;
   }
 
   if (state.entries.length === 0) {
-    return `
+    const emptyMsg = state.search
+      ? `No entries matching "${escapeHtml(state.search)}".`
+      : 'No entries yet. Tap "New Entry" to start tracking.';
+    return controls + `
       <div style="text-align: center; padding: 60px 20px; color: var(--bark);">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--warm-gray)" stroke-width="1" style="margin: 0 auto 16px;">
           <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
         </svg>
-        <p style="font-size: 16px; font-weight: 600;">No entries yet</p>
-        <p style="font-size: 14px; margin-top: 4px;">Tap "New Entry" to start tracking your reading.</p>
+        <p style="font-size: 16px; font-weight: 600;">${emptyMsg}</p>
       </div>
     `;
   }
@@ -540,15 +647,19 @@ function renderList() {
     const bookName = BOOKS[entry.start.book] || 'Unknown';
     const chapter = entry.start.chapter;
     const dateStr = formatDateDisplay(entry.date);
+    const imgSrc = entry.image_url || PLACEHOLDER_IMG;
+    const testament = entry.start.book < 39 ? 'Old Testament' : 'New Testament';
 
     return `
       <div class="entry-card" style="margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <div class="font-display" style="font-size: 20px; line-height: 1.2;">${bookName} ${chapter}</div>
+        <div style="display: flex; gap: 14px; padding: 16px 18px;">
+          <img class="entry-image" src="${escapeHtml(imgSrc)}" alt="${escapeHtml(bookName)}" onerror="handleImgError(this)" loading="lazy" />
+          <div style="flex: 1; min-width: 0;">
+            <div class="font-display" style="font-size: 19px; line-height: 1.2;">${escapeHtml(bookName)} ${chapter}</div>
+            <div style="font-size: 12px; color: var(--warm-gray); margin-top: 2px;">${testament}</div>
             <div style="font-size: 13px; color: var(--bark); margin-top: 4px;">${dateStr}</div>
           </div>
-          <div style="display: flex; gap: 6px; flex-shrink: 0;">
+          <div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
             <button class="btn-ghost" onclick="openEditEntry(${entry.id})" style="padding: 6px 12px; font-size: 13px;">Edit</button>
             <button class="btn-danger" onclick="confirmDelete(${entry.id})">✕</button>
           </div>
@@ -557,28 +668,38 @@ function renderList() {
     `;
   }).join('');
 
-  return `
-    ${entryCards}
-    ${renderPaging()}
-  `;
+  return controls + entryCards + renderPaging();
 }
 
 // ============================================================
 // PAGING
 // ============================================================
 function renderPaging() {
-  if (state.totalPages <= 1) return '';
+  if (state.totalPages <= 1 && state.totalEntries <= state.perPage) return `
+    <div style="text-align: center; margin-top: 10px; font-size: 13px; color: var(--bark);">
+      ${state.totalEntries} total entries
+    </div>
+  `;
+
+  const maxVisible = 5;
+  let startPage = Math.max(1, state.currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(state.totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
 
   let pages = '';
-  for (let i = 1; i <= state.totalPages; i++) {
+  for (let i = startPage; i <= endPage; i++) {
     pages += `<button class="page-btn ${i === state.currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
   }
 
   return `
     <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap;">
+      <button class="page-btn" onclick="goToPage(1)" ${state.currentPage <= 1 ? 'disabled' : ''}>«</button>
       <button class="page-btn" onclick="goToPage(${state.currentPage - 1})" ${state.currentPage <= 1 ? 'disabled' : ''}>‹</button>
       ${pages}
       <button class="page-btn" onclick="goToPage(${state.currentPage + 1})" ${state.currentPage >= state.totalPages ? 'disabled' : ''}>›</button>
+      <button class="page-btn" onclick="goToPage(${state.totalPages})" ${state.currentPage >= state.totalPages ? 'disabled' : ''}>»</button>
     </div>
     <div style="text-align: center; margin-top: 10px; font-size: 13px; color: var(--bark);">
       Page ${state.currentPage} of ${state.totalPages} · ${state.totalEntries} total entries
@@ -602,7 +723,11 @@ function renderStatsView() {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         <div class="stat-card">
           <div class="stat-number">${s.totalEntries}</div>
-          <div class="stat-label">Total Entries</div>
+          <div class="stat-label">Total Records</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${state.perPage}</div>
+          <div class="stat-label">Current Page Size</div>
         </div>
         <div class="stat-card">
           <div class="stat-number">${s.totalChapters}</div>
@@ -615,6 +740,10 @@ function renderStatsView() {
         <div class="stat-card">
           <div class="stat-number">${s.longestStreak}</div>
           <div class="stat-label">Day Streak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${s.avgChapter}</div>
+          <div class="stat-label">Avg Chapter #</div>
         </div>
       </div>
 
@@ -644,6 +773,7 @@ function renderModal() {
   const dateVal = e.date ? formatDatetimeLocal(e.date) : '';
   const bookVal = e.start.book !== null && e.start.book !== undefined && e.start.book !== '' ? e.start.book : '';
   const chapterVal = e.start.chapter || 1;
+  const imageVal = e.image_url || '';
 
   const bookOptions = BOOKS.map((b, i) =>
     `<option value="${i}" ${i == bookVal ? 'selected' : ''}>${b}</option>`
@@ -652,6 +782,11 @@ function renderModal() {
   const errorsHtml = state.formErrors.length > 0
     ? `<div style="margin-bottom: 14px;">${state.formErrors.map(err => `<div class="error-text">⚠ ${err}</div>`).join('')}</div>`
     : '';
+
+  // Predefined image selection
+  const imagePickerHtml = DEFAULT_IMAGES.map((url, i) =>
+    `<img src="${url}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid ${url === imageVal ? 'var(--gold)' : 'transparent'};" onclick="pickImage('${url}')" />`
+  ).join('');
 
   return `
     <div class="modal-overlay" onclick="closeModal(event)">
@@ -673,10 +808,19 @@ function renderModal() {
           </select>
         </div>
 
-        <div style="margin-bottom: 20px;">
+        <div style="margin-bottom: 16px;">
           <label style="display: block; font-size: 13px; font-weight: 600; color: var(--bark); margin-bottom: 6px;">Chapter</label>
           <input type="number" id="form-chapter" class="form-input ${state.formErrors.some(e => e.includes('hapter')) ? 'error' : ''}" min="1" value="${chapterVal}" />
           <div id="chapter-hint" style="font-size: 12px; color: var(--warm-gray); margin-top: 4px;">${bookVal !== '' ? `${BOOKS[bookVal]} has ${CHAPTER_MAP[bookVal]} chapters` : ''}</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; font-weight: 600; color: var(--bark); margin-bottom: 6px;">Image URL (optional)</label>
+          <input type="url" id="form-image" class="form-input" value="${escapeHtml(imageVal)}" placeholder="https://example.com/image.jpg" />
+          <div style="font-size: 12px; color: var(--warm-gray); margin-top: 6px;">Or pick one:</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+            ${imagePickerHtml}
+          </div>
         </div>
 
         <button class="btn-primary" onclick="saveEntry()" ${state.saving ? 'disabled' : ''}>
@@ -699,7 +843,7 @@ function renderDeleteConfirm() {
       <div class="confirm-box" onclick="event.stopPropagation()">
         <h3 class="font-display" style="font-size: 20px; margin-bottom: 8px;">Delete Entry?</h3>
         <p style="font-size: 14px; color: var(--bark); margin-bottom: 20px;">
-          Are you sure you want to remove <strong>${bookName} ${e.start.chapter}</strong> from ${formatDateDisplay(e.date)}? This cannot be undone.
+          Are you sure you want to remove <strong>${escapeHtml(bookName)} ${e.start.chapter}</strong> from ${formatDateDisplay(e.date)}? This cannot be undone.
         </p>
         <div style="display: flex; gap: 10px;">
           <button class="btn-ghost" onclick="state.deleting=null;render();" style="flex:1;">Cancel</button>
@@ -718,7 +862,7 @@ function navigate(page) {
   if (page === 'stats') {
     loadStats();
   } else {
-    loadEntries(state.currentPage);
+    loadEntries(1);
   }
 }
 
@@ -732,6 +876,7 @@ function openNewEntry() {
     id: null,
     date: Date.now(),
     start: { book: '', chapter: 1 },
+    image_url: DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)],
   };
   state.formErrors = [];
   render();
@@ -775,6 +920,39 @@ function onBookChange() {
   } else {
     hint.textContent = '';
   }
+}
+
+let searchTimeout = null;
+function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  state.search = val;
+  searchTimeout = setTimeout(() => {
+    loadEntries(1);
+  }, 350);
+}
+
+function onSortChange(val) {
+  state.sort = val;
+  loadEntries(1);
+}
+
+function onPageSizeChange(val) {
+  state.perPage = parseInt(val);
+  setCookie('pageSize', state.perPage);
+  loadEntries(1);
+}
+
+function pickImage(url) {
+  const el = document.getElementById('form-image');
+  if (el) el.value = url;
+  // Update visual selection
+  state.editing.image_url = url;
+  render();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ============================================================
